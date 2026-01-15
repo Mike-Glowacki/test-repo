@@ -1,1 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Educational Drum Machine</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    background: #0f172a;
+    color: #e5e7eb;
+    margin: 0;
+    padding: 20px;
+  }
+
+  h1, h2 {
+    text-align: center;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: auto;
+  }
+
+  .controls {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 20px 0;
+    flex-wrap: wrap;
+    gap: 10px;
+  }
+
+  label {
+    font-size: 14px;
+  }
+
+  input[type="range"] {
+    width: 150px;
+  }
+
+  button {
+    background: #2563eb;
+    border: none;
+    padding: 10px 16px;
+    border-radius: 6px;
+    color: white;
+    font-size: 14px;
+    cursor: pointer;
+  }
+
+  button:hover {
+    background: #1d4ed8;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: 120px repeat(8, 1fr);
+    gap: 6px;
+    margin-top: 20px;
+  }
+
+  .grid div {
+    text-align: center;
+    padding: 10px;
+    border-radius: 4px;
+    font-size: 13px;
+  }
+
+  .instrument {
+    background: #020617;
+    font-weight: bold;
+  }
+
+  .step {
+    background: #1e293b;
+    cursor: pointer;
+  }
+
+  .step.active {
+    background: #22c55e;
+    color: #022c22;
+    font-weight: bold;
+  }
+
+  .step.current {
+    outline: 2px solid #facc15;
+  }
+
+  .lesson {
+    background: #020617;
+    padding: 15px;
+    border-radius: 8px;
+    margin-top: 30px;
+    line-height: 1.6;
+    font-size: 14px;
+  }
+</style>
+</head>
+<body>
+<div class="container">
+  <h1>Educational Drum Machine</h1>
+  <p style="text-align:center">Learn rhythm, beats, tempo, and measures by building patterns 🎵</p>
+
+  <div class="controls">
+    <div>
+      <label>BPM (Tempo): <strong><span id="bpmValue">120</span></strong></label><br>
+      <input type="range" id="bpm" min="60" max="180" value="120">
+    </div>
+    <div>
+      <button id="play">▶ Play</button>
+      <button id="stop">⏹ Stop</button>
+      <button id="clear">🧹 Clear</button>
+    </div>
+  </div>
+
+  <h2>1 Measure (8 Steps)</h2>
+
+  <div class="grid" id="grid">
+    <div></div>
+    <div>1</div><div>2</div><div>3</div><div>4</div>
+    <div>5</div><div>6</div><div>7</div><div>8</div>
+
+    <div class="instrument">Kick</div>
+    <div class="step" data-row="0" data-col="0"></div>
+    <div class="step" data-row="0" data-col="1"></div>
+    <div class="step" data-row="0" data-col="2"></div>
+    <div class="step" data-row="0" data-col="3"></div>
+    <div class="step" data-row="0" data-col="4"></div>
+    <div class="step" data-row="0" data-col="5"></div>
+    <div class="step" data-row="0" data-col="6"></div>
+    <div class="step" data-row="0" data-col="7"></div>
+
+    <div class="instrument">Snare</div>
+    <div class="step" data-row="1" data-col="0"></div>
+    <div class="step" data-row="1" data-col="1"></div>
+    <div class="step" data-row="1" data-col="2"></div>
+    <div class="step" data-row="1" data-col="3"></div>
+    <div class="step" data-row="1" data-col="4"></div>
+    <div class="step" data-row="1" data-col="5"></div>
+    <div class="step" data-row="1" data-col="6"></div>
+    <div class="step" data-row="1" data-col="7"></div>
+
+    <div class="instrument">Hi-Hat</div>
+    <div class="step" data-row="2" data-col="0"></div>
+    <div class="step" data-row="2" data-col="1"></div>
+    <div class="step" data-row="2" data-col="2"></div>
+    <div class="step" data-row="2" data-col="3"></div>
+    <div class="step" data-row="2" data-col="4"></div>
+    <div class="step" data-row="2" data-col="5"></div>
+    <div class="step" data-row="2" data-col="6"></div>
+    <div class="step" data-row="2" data-col="7"></div>
+  </div>
+
+  <div class="lesson">
+    <h2>How This Teaches Rhythm</h2>
+    <ul>
+      <li><strong>Steps:</strong> Each column is a beat subdivision.</li>
+      <li><strong>Measure:</strong> 8 steps = 1 measure.</li>
+      <li><strong>Kick:</strong> Often on beats 1 & 5.</li>
+      <li><strong>Snare:</strong> Commonly on beats 3 & 7.</li>
+      <li><strong>Hi-Hat:</strong> Keeps steady time.</li>
+      <li><strong>BPM:</strong> Higher BPM = faster music.</li>
+    </ul>
+    Try muting parts and changing tempo to hear how groove changes!
+  </div>
+</div>
+
+<script>
+  const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  const bpmSlider = document.getElementById("bpm");
+  const bpmValue = document.getElementById("bpmValue");
+  const steps = document.querySelectorAll(".step");
+
+  const pattern = [
+    Array(8).fill(false),
+    Array(8).fill(false),
+    Array(8).fill(false)
+  ];
+
+  let currentStep = 0;
+  let timer = null;
+
+  bpmSlider.oninput = () => bpmValue.textContent = bpmSlider.value;
+
+  steps.forEach(step => {
+    step.onclick = () => {
+      const r = step.dataset.row;
+      const c = step.dataset.col;
+      pattern[r][c] = !pattern[r][c];
+      step.classList.toggle("active");
+    };
+  });
+
+  function playSound(type) {
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+
+    if (type === "kick") osc.frequency.value = 100;
+    if (type === "snare") osc.frequency.value = 200;
+    if (type === "hat") osc.frequency.value = 6000;
+
+    gain.gain.setValueAtTime(1, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.1);
+
+    osc.connect(gain).connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.1);
+  }
+
+  function tick() {
+    document.querySelectorAll(".current").forEach(s => s.classList.remove("current"));
+
+    pattern.forEach((row, r) => {
+      if (row[currentStep]) {
+        if (r === 0) playSound("kick");
+        if (r === 1) playSound("snare");
+        if (r === 2) playSound("hat");
+      }
+      document.querySelector(`.step[data-row="${r}"][data-col="${currentStep}"]`)
+        .classList.add("current");
+    });
+
+    currentStep = (currentStep + 1) % 8;
+  }
+
+  document.getElementById("play").onclick = () => {
+    if (timer) return;
+    const interval = (60 / bpmSlider.value) * 500;
+    tick();
+    timer = setInterval(tick, interval);
+  };
+
+  document.getElementById("stop").onclick = () => {
+    clearInterval(timer);
+    timer = null;
+    currentStep = 0;
+    document.querySelectorAll(".current").forEach(s => s.classList.remove("current"));
+  };
+
+  document.getElementById("clear").onclick = () => {
+    pattern.forEach(row => row.fill(false));
+    steps.forEach(s => s.classList.remove("active"));
+  };
+</script>
+</body>
+</html>
 
