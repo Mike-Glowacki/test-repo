@@ -1,1 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educational Drum Machine</title>
+    <style>
+        :root {
+            --bg-color: #1a1a2e;
+            --panel-color: #16213e;
+            --accent-color: #e94560;
+            --pad-off: #0f3460;
+            --pad-on: #e94560;
+            --active-step: #ffffff;
+        }
 
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg-color);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background-color: var(--panel-color);
+            padding: 2rem;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            text-align: center;
+        }
+
+        .controls {
+            margin-bottom: 20px;
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        button#play-btn {
+            padding: 10px 25px;
+            font-size: 1.2rem;
+            cursor: pointer;
+            background-color: var(--accent-color);
+            border: none;
+            color: white;
+            border-radius: 5px;
+            transition: transform 0.1s;
+        }
+
+        button#play-btn:active { transform: scale(0.95); }
+
+        .bpm-control input {
+            width: 60px;
+            padding: 5px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        .sequencer {
+            display: grid;
+            grid-template-columns: 80px repeat(8, 50px);
+            gap: 10px;
+            align-items: center;
+        }
+
+        .instrument-label {
+            text-align: right;
+            padding-right: 15px;
+            font-weight: bold;
+            font-size: 0.9rem;
+            color: #95a5a6;
+        }
+
+        .pad {
+            width: 50px;
+            height: 50px;
+            background-color: var(--pad-off);
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.1s;
+        }
+
+        .pad.active {
+            background-color: var(--pad-on);
+            box-shadow: 0 0 10px var(--accent-color);
+        }
+
+        /* The visual indicator for the current beat */
+        .playing-now {
+            border: 2px solid var(--active-step);
+            transform: scale(1.05);
+        }
+
+        .info {
+            margin-top: 30px;
+            max-width: 500px;
+            font-size: 0.9rem;
+            line-height: 1.4;
+            color: #bdc3c7;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>JS Drum Machine</h1>
+        
+        <div class="controls">
+            <button id="play-btn">Play</button>
+            <div class="bpm-control">
+                <label>BPM: </label>
+                <input type="number" id="bpm" value="120" min="60" max="200">
+            </div>
+        </div>
+
+        <div class="sequencer" id="sequencer">
+            </div>
+
+        <div class="info">
+            <p><strong>Educational Note:</strong> This machine uses 8 "steps." If the BPM is 120, the JavaScript calculates the timing to trigger the next column every 125ms (60,000 / 120 / 4 steps per beat).</p>
+        </div>
+    </div>
+
+    <audio id="snd-kick" src="https://actions.google.com/sounds/v1/percussion/bass_drum_clack.ogg"></audio>
+    <audio id="snd-snare" src="https://actions.google.com/sounds/v1/percussion/snare_drum_snare_hit.ogg"></audio>
+    <audio id="snd-hihat" src="https://actions.google.com/sounds/v1/percussion/high_hat_open.ogg"></audio>
+
+    <script>
+        const sounds = {
+            'Kick': document.getElementById('snd-kick'),
+            'Snare': document.getElementById('snd-snare'),
+            'HiHat': document.getElementById('snd-hihat')
+        };
+
+        const sequencerEl = document.getElementById('sequencer');
+        const playBtn = document.getElementById('play-btn');
+        const bpmInput = document.getElementById('bpm');
+
+        let isPlaying = false;
+        let currentStep = 0;
+        let timerId = null;
+
+        // 1. Initialize the Grid
+        const instruments = ['Kick', 'Snare', 'HiHat'];
+        const steps = 8;
+
+        instruments.forEach(inst => {
+            // Add Label
+            const label = document.createElement('div');
+            label.className = 'instrument-label';
+            label.innerText = inst;
+            sequencerEl.appendChild(label);
+
+            // Add Pads
+            for (let i = 0; i < steps; i++) {
+                const pad = document.createElement('div');
+                pad.className = 'pad';
+                pad.dataset.instrument = inst;
+                pad.dataset.step = i;
+                pad.addEventListener('click', () => pad.classList.toggle('active'));
+                sequencerEl.appendChild(pad);
+            }
+        });
+
+        // 2. The Play Logic
+        function playStep() {
+            const allPads = document.querySelectorAll('.pad');
+            
+            // Remove highlighting from previous step
+            allPads.forEach(p => p.classList.remove('playing-now'));
+
+            // Highlight and Play current step
+            instruments.forEach(inst => {
+                const pad = document.querySelector(`.pad[data-instrument="${inst}"][data-step="${currentStep}"]`);
+                pad.classList.add('playing-now');
+
+                if (pad.classList.contains('active')) {
+                    const sound = sounds[inst];
+                    sound.currentTime = 0; // Rewind to start
+                    sound.play();
+                }
+            });
+
+            currentStep = (currentStep + 1) % steps;
+        }
+
+        function startStop() {
+            if (isPlaying) {
+                clearInterval(timerId);
+                playBtn.innerText = 'Play';
+                currentStep = 0;
+                document.querySelectorAll('.pad').forEach(p => p.classList.remove('playing-now'));
+            } else {
+                const bpm = bpmInput.value;
+                const interval = (60000 / bpm) / 2; // 1/8th notes
+                timerId = setInterval(playStep, interval);
+                playBtn.innerText = 'Stop';
+            }
+            isPlaying = !isPlaying;
+        }
+
+        playBtn.addEventListener('click', startStop);
+    </script>
+</body>
+</html>
