@@ -1,1 +1,435 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Edu Drum Machine 🥁</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 
+<style>
+  body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    background: linear-gradient(135deg, #1e1e2f, #2a1a3d);
+    color: #e0e0ff;
+    margin: 0;
+    padding: 20px;
+    min-height: 100vh;
+    display: flex;
+    justify-content: center;
+  }
+
+  .container {
+    max-width: 900px;
+    width: 100%;
+  }
+
+  h1 {
+    text-align: center;
+    color: #ff79c6;
+    margin-bottom: 0.4em;
+    text-shadow: 0 0 10px rgba(255,121,198,0.6);
+  }
+
+  .info {
+    background: rgba(40,40,70,0.6);
+    padding: 12px 18px;
+    border-radius: 10px;
+    margin: 10px 0 25px;
+    font-size: 0.92rem;
+    line-height: 1.45;
+    border-left: 4px solid #bd93f9;
+  }
+
+  .sequencer {
+    display: grid;
+    grid-template-columns: 90px repeat(16, 1fr);
+    gap: 4px 6px;
+    margin: 20px 0;
+    background: rgba(20,20,40,0.5);
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .row-label {
+    background: #444;
+    color: #ff79c6;
+    font-weight: bold;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    text-shadow: 0 0 4px #0008;
+  }
+
+  .step {
+    aspect-ratio: 1;
+    background: #2a2a3a;
+    border: 2px solid #444;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+
+  .step.active {
+    background: #ff79c6;
+    box-shadow: 0 0 16px #ff79c6aa;
+    transform: scale(1.08);
+    border-color: #ff79c6;
+  }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    justify-content: center;
+    margin: 20px 0;
+  }
+
+  button, select, input[type=range] {
+    padding: 10px 16px;
+    border: none;
+    border-radius: 8px;
+    background: #444;
+    color: white;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.2s;
+  }
+
+  button:hover:not(:disabled) {
+    background: #ff79c6;
+    color: #1e1e2f;
+    transform: translateY(-1px);
+  }
+
+  button.playing {
+    background: #50fa7b;
+    color: black;
+    animation: pulse 1.2s infinite alternate;
+  }
+
+  @keyframes pulse {
+    from { box-shadow: 0 0 8px #50fa7b; }
+    to   { box-shadow: 0 0 20px #50fa7b88; }
+  }
+
+  .bpm-control {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .volume-row {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 20px;
+    margin-top: 15px;
+    flex-wrap: wrap;
+  }
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <h1>Educational 16-Step Drum Machine 🥁</h1>
+
+  <div class="info">
+    How it works:<br>
+    • Click squares to place/remove drum hits<br>
+    • Each row = different sound (kick/snare/hat/etc)<br>
+    • Press <strong>SPACE</strong> or ▶ to play/stop<br>
+    • Change BPM • Adjust volume • Have fun experimenting!
+  </div>
+
+  <div class="sequencer" id="sequencer"></div>
+
+  <div class="controls">
+    <button id="playBtn">Play (SPACE)</button>
+    <div class="bpm-control">
+      <label>BPM:</label>
+      <input type="range" id="bpm" min="60" max="180" value="100" step="1">
+      <span id="bpmValue">100</span>
+    </div>
+    <select id="swing">
+      <option value="0">Swing: Off</option>
+      <option value="0.1">Swing: Light (10%)</option>
+      <option value="0.25">Swing: Classic (25%)</option>
+      <option value="0.4">Swing: Heavy (40%)</option>
+    </select>
+  </div>
+
+  <div class="volume-row">
+    <label>Kick vol:</label><input type="range" class="vol" data-sound="kick" min="0" max="1" step="0.05" value="0.9">
+    <label>Snare:</label><input type="range" class="vol" data-sound="snare" min="0" max="1" step="0.05" value="0.85">
+    <label>Hihat:</label><input type="range" class="vol" data-sound="hihat" min="0" max="1" step="0.05" value="0.7">
+  </div>
+
+</div>
+
+<script>
+// === Sounds (using Web Audio API) ===
+const ctx = new (window.AudioContext || window.webkitAudioContext)();
+
+const sounds = {
+  kick:  createKick(),
+  snare: createSnare(),
+  hihat: createHihat(),
+  clap:  createClap(),
+  rim:   createRim(),
+  tom:   createTom()
+};
+
+function createKick() {
+  return () => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    osc.frequency.setValueAtTime(180, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(40, ctx.currentTime + 0.12);
+    gain.gain.setValueAtTime(1.2, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+    
+    osc.start();
+    osc.stop(ctx.currentTime + 0.3);
+  }
+}
+
+function createSnare() {
+  return () => {
+    // Noise + short sine
+    const noise = ctx.createBufferSource();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate*0.12, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<data.length;i++) data[i] = Math.random()*2-1;
+    noise.buffer = buffer;
+
+    const gain = ctx.createGain();
+    const filter = ctx.createBiquadFilter();
+    filter.type = "highpass";
+    filter.frequency.value = 800;
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+
+    gain.gain.setValueAtTime(0.9, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.12);
+
+    noise.start();
+  }
+}
+
+function createHihat() {
+  return () => {
+    const noise = ctx.createBufferSource();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate*0.02, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<data.length;i++) data[i] = Math.random()*2-1;
+    noise.buffer = buffer;
+
+    const gain = ctx.createGain();
+    noise.connect(gain);
+    gain.connect(ctx.destination);
+
+    gain.gain.setValueAtTime(0.7, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.02);
+    noise.start();
+  }
+}
+
+function createClap() {
+  return () => {
+    const noise = ctx.createBufferSource();
+    const buffer = ctx.createBuffer(1, ctx.sampleRate*0.08, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for(let i=0;i<data.length;i++) data[i] = Math.random()*2-1;
+    noise.buffer = buffer;
+
+    const gain = ctx.createGain();
+    const comp = ctx.createDynamicsCompressor();
+    comp.threshold.value = -24;
+    comp.ratio.value = 12;
+
+    noise.connect(comp);
+    comp.connect(gain);
+    gain.connect(ctx.destination);
+
+    gain.gain.setValueAtTime(1.1, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.09);
+    noise.start();
+  }
+}
+
+function createRim() {
+  return () => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(300, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(80, ctx.currentTime + 0.04);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.8, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.06);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.15);
+  }
+}
+
+function createTom() {
+  return () => {
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(160, ctx.currentTime);
+    osc.frequency.exponentialRampToValueAtTime(60, ctx.currentTime + 0.18);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    gain.gain.setValueAtTime(0.9, ctx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.35);
+    osc.start();
+    osc.stop(ctx.currentTime + 0.5);
+  }
+}
+
+// === Sequencer Data ===
+const pattern = [
+  { name:"Kick",  key:"kick",  steps:Array(16).fill(false) },
+  { name:"Snare", key:"snare", steps:Array(16).fill(false) },
+  { name:"Clap",  key:"clap",  steps:Array(16).fill(false) },
+  { name:"Hihat", key:"hihat", steps:Array(16).fill(false) },
+  { name:"Rim",   key:"rim",   steps:Array(16).fill(false) },
+  { name:"Tom",   key:"tom",   steps:Array(16).fill(false) }
+];
+
+// Build grid
+const seqEl = document.getElementById("sequencer");
+
+pattern.forEach(row => {
+  // Label
+  const label = document.createElement("div");
+  label.className = "row-label";
+  label.textContent = row.name;
+  seqEl.appendChild(label);
+
+  // Steps
+  row.steps.forEach((active,i) => {
+    const step = document.createElement("div");
+    step.className = "step";
+    if(active) step.classList.add("active");
+    
+    step.dataset.row = pattern.indexOf(row);
+    step.dataset.col = i;
+
+    step.addEventListener("click", () => {
+      row.steps[i] = !row.steps[i];
+      step.classList.toggle("active");
+    });
+
+    seqEl.appendChild(step);
+  });
+});
+
+// Controls
+let isPlaying = false;
+let currentStep = 0;
+let intervalId = null;
+let lastTime = 0;
+
+const playBtn = document.getElementById("playBtn");
+const bpmSlider = document.getElementById("bpm");
+const bpmValue = document.getElementById("bpmValue");
+const swingSelect = document.getElementById("swing");
+
+let bpm = +bpmSlider.value;
+let swing = +swingSelect.value;
+
+bpmSlider.addEventListener("input", e=>{
+  bpm = +e.target.value;
+  bpmValue.textContent = bpm;
+});
+
+swingSelect.addEventListener("change", e=> swing = +e.target.value);
+
+playBtn.addEventListener("click", togglePlay);
+document.addEventListener("keydown", e=>{
+  if(e.code === "Space") {
+    e.preventDefault();
+    togglePlay();
+  }
+});
+
+function togglePlay() {
+  if(isPlaying) {
+    clearInterval(intervalId);
+    playBtn.textContent = "Play (SPACE)";
+    playBtn.classList.remove("playing");
+    isPlaying = false;
+  } else {
+    currentStep = -1; // will become 0 on first tick
+    lastTime = performance.now();
+    intervalId = setInterval(schedule, 4);
+    playBtn.textContent = "Stop";
+    playBtn.classList.add("playing");
+    isPlaying = true;
+  }
+}
+
+// Main scheduler
+function schedule() {
+  const now = performance.now();
+  const delta = now - lastTime;
+  const msPerStep = (60000 / bpm) / 4; // 16th notes
+
+  if(delta >= msPerStep * (1 + (currentStep%2 ? swing : -swing))) {
+    currentStep = (currentStep + 1) % 16;
+    lastTime = now;
+
+    // Play sounds
+    pattern.forEach(row => {
+      if(row.steps[currentStep]) {
+        const vol = document.querySelector(`.vol[data-sound="${row.key}"]`)?.value ?? 0.8;
+        const soundFn = sounds[row.key];
+        if(soundFn) {
+          const gainNode = ctx.createGain();
+          gainNode.gain.value = vol;
+          gainNode.connect(ctx.destination);
+          soundFn(); // play
+          // We could connect through gainNode, but for simplicity we skip
+        }
+      }
+    });
+
+    // Visual feedback
+    document.querySelectorAll('.step').forEach(step=>{
+      step.classList.remove('playing');
+      if(+step.dataset.col === currentStep) {
+        step.classList.add('playing');
+      }
+    });
+  }
+}
+
+// Quick initial visual help
+setTimeout(() => {
+  // Auto demo pattern (optional)
+  pattern[0].steps[0] = pattern[0].steps[4] = pattern[0].steps[8] = pattern[0].steps[12] = true;
+  pattern[1].steps[4] = pattern[1].steps[12] = true;
+  pattern[2].steps[4] = pattern[2].steps[12] = true;
+  pattern[3].steps.fill(true); // open hats everywhere for fun
+
+  // Refresh UI
+  document.querySelectorAll('.step').forEach(step=>{
+    const r = +step.dataset.row;
+    const c = +step.dataset.col;
+    if(pattern[r].steps[c]) step.classList.add('active');
+  });
+}, 300);
+
+</script>
+</body>
+</html>
